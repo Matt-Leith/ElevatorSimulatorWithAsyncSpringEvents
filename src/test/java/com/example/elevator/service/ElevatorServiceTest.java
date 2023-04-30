@@ -2,8 +2,11 @@ package com.example.elevator.service;
 
 import com.example.elevator.dao.ElevatorRepository;
 import com.example.elevator.dao.TripRepository;
+import com.example.elevator.exception.InvalidSystemStateException;
 import com.example.elevator.model.Elevator;
 import com.example.elevator.model.Trip;
+import com.sun.tools.javac.util.List;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.InjectMocks;
@@ -24,13 +27,26 @@ public class ElevatorServiceTest {
     @Mock
     private TripRepository tripRepository;
 
-    @InjectMocks
-    private ElevatorService elevatorService = new ElevatorService();
+    private ElevatorService elevatorService;
+
+    @Before
+    public void setUp() {
+        elevatorService = new ElevatorService(elevatorRepository, tripRepository);
+    }
+
+    @Test(expected = InvalidSystemStateException.class)
+    public void assigningElevatorWhenNoneExistRaisesInvalidSystemStateException() {
+        Trip trip = new Trip();
+        trip.setStartFloor(1L);
+        when(elevatorRepository.findAll()).thenReturn(emptyList());
+        elevatorService.assignAvailableElevator(trip);
+    }
 
     @Test
-    public void elevatorWithLowestNumberOfJobsIsAssigned() throws Exception {
+    public void elevatorWithLowestNumberOfJobsIsAssigned() {
         Trip trip = new Trip();
-        when(elevatorRepository.findAll()).thenReturn(emptyList());
+        trip.setStartFloor(1L);
+        when(elevatorRepository.findAll()).thenReturn(List.of(new Elevator()));
         Elevator elevator = elevatorService.assignAvailableElevator(trip);
         assertThat(elevator.getTripQueue().size(), is(1));
     }

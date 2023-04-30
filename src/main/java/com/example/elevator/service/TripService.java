@@ -2,7 +2,6 @@ package com.example.elevator.service;
 
 import com.example.elevator.dao.ElevatorRepository;
 import com.example.elevator.dao.TripRepository;
-import com.example.elevator.event.TripEvent;
 import com.example.elevator.model.Elevator;
 import com.example.elevator.model.Trip;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,6 +26,17 @@ public class TripService {
         this.elevatorService = elevatorService;
     }
 
+    public void takeLowPriorityTrip(Trip trip) {
+        List<Elevator> idleElevators = elevatorService.getIdleElevators();
+        for (Elevator idleElevator : idleElevators) {
+            trip.setStartFloor(idleElevator.getCurrentFloor());
+            Long numberOfFloorsToTravelToDestinationFloor = abs(trip.getStartFloor() - trip.getDestinationFloor());
+            System.out.println(String.format("Moving idle elevator %s", idleElevator.getName()));
+            moveElevatorToFloor(trip.getStartFloor(), idleElevator);
+            finaliseTrip(trip, numberOfFloorsToTravelToDestinationFloor);
+        }
+    }
+
     public void takeTrip(Trip trip) {
         Elevator assignedElevator = elevatorService.assignAvailableElevator(trip);
 
@@ -46,6 +56,10 @@ public class TripService {
 
         moveElevatorToFloor(trip.getDestinationFloor(), assignedElevator);
 
+        finaliseTrip(trip, numberOfFloorsToTravelToDestinationFloor);
+    }
+
+    private void finaliseTrip(Trip trip, Long numberOfFloorsToTravelToDestinationFloor) {
         System.out.println("Elevator has arrived at destination floor {" + trip.getDestinationFloor()
                 + "} travelling {" + numberOfFloorsToTravelToDestinationFloor + "} floors");
         trip.setArrivalAtDestinationTime(new Date());

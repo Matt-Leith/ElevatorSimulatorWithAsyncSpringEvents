@@ -13,9 +13,10 @@ import java.util.Map;
 
 @Service
 public class AnalyticsService {
-    public static final double RATIO_TO_MOVE_ELEVATOR = 0.75;
-    private TripRepository tripRepository;
-    private TripService tripService;
+    private static final double RATIO_TO_MOVE_ELEVATOR = 0.50;
+    private static final int MINIMUM_TRIP_COUNT_FOR_ANALYTICS = 5;
+    private final TripRepository tripRepository;
+    private final TripService tripService;
 
     @Autowired
     public AnalyticsService(TripRepository tripRepository, TripService tripService) {
@@ -26,7 +27,7 @@ public class AnalyticsService {
     public void runAnalytics(TripEvent event) {
         List<Trip> trips = (List) tripRepository.findAll();
 
-        if (trips.size() < 10) {
+        if (trips.size() < MINIMUM_TRIP_COUNT_FOR_ANALYTICS) {
             return;
         }
 
@@ -42,15 +43,14 @@ public class AnalyticsService {
         for (Long floor : floorMap.keySet()) {
             double percentageOfTripsWithAStartFloorAtThisFloor = floorMap.get(floor) / trips.size();
             if (percentageOfTripsWithAStartFloorAtThisFloor > RATIO_TO_MOVE_ELEVATOR) {
-                moveIdleElevatorToThisFloor(floor);
+                moveIdleElevatorToFloor(floor);
             }
         }
     }
 
-    private void moveIdleElevatorToThisFloor(Long floor) {
+    private void moveIdleElevatorToFloor(Long floor) {
         Trip trip = new Trip();
         trip.setRequestTime(new Date());
-        trip.setStartFloor(floor);
         trip.setDestinationFloor(floor);
 
         try {
@@ -62,6 +62,6 @@ public class AnalyticsService {
         System.out.println(String.format("Idle elevator is being moved to floor %s due to identification "
                 + "of a current trend in elevator use", floor));
 
-        tripService.takeTrip(trip);
+        tripService.takeLowPriorityTrip(trip);
     }
 }

@@ -2,6 +2,7 @@ package com.example.elevator.service;
 
 import com.example.elevator.dao.ElevatorRepository;
 import com.example.elevator.dao.TripRepository;
+import com.example.elevator.exception.InvalidSystemStateException;
 import com.example.elevator.model.Elevator;
 import com.example.elevator.model.Trip;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,15 +16,33 @@ import java.util.stream.Collectors;
 @Service
 public class ElevatorService {
 
-    @Autowired
-    private ElevatorRepository elevatorRepository;
+    private final ElevatorRepository elevatorRepository;
+
+    private final TripRepository tripRepository;
 
     @Autowired
-    private TripRepository tripRepository;
+    public ElevatorService(ElevatorRepository elevatorRepository, TripRepository tripRepository) {
+        this.elevatorRepository = elevatorRepository;
+        this.tripRepository = tripRepository;
+    }
+
+    public List<Elevator> getElevators() {
+        return (List) elevatorRepository.findAll();
+    }
+
+    public List<Elevator> getIdleElevators() {
+        List<Elevator> elevators = (List) elevatorRepository.findAll();
+        List<Elevator> idleElevators = elevators.stream()
+                .filter(x -> x.getTripQueueSize() == 0).collect(Collectors.toList());
+        return idleElevators;
+    }
 
     @Transactional
     public Elevator assignAvailableElevator(Trip trip) {
         List<Elevator> elevators = (List) elevatorRepository.findAll();
+        if (elevators.isEmpty()) {
+            throw new InvalidSystemStateException("No elevators are present - cannot assign elevator");
+        }
         List<Elevator> sortedElevators = getElevatorsWithLowestNumberOfActiveTrips(elevators);
 
         Elevator elevatorWithLowestNumberOfJobs = getElevatorWithLowestDistanceToStartFloor(sortedElevators,
@@ -46,10 +65,7 @@ public class ElevatorService {
     private Elevator getElevatorWithLowestDistanceToStartFloor(List<Elevator> elevators, Integer startFloor) {
         Long startFloorInt = Long.valueOf(startFloor.toString());
         return elevators.stream()
-                .min(Comparator.comparingLong(i -> Math.abs(i.getCurrentFloor() - (startFloorInt)))).get();
-    }
-
-    public List<Elevator> getElevators() {
-        return (List) elevatorRepository.findAll();
+                .min(Comparator.comparingLong(i -> Math.abs(i.getCurrentFloor() - (startFloorInt))))
+                .orElse(null);
     }
 }
